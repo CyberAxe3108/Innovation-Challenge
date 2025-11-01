@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Pathway Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .8; }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+        .animate-slideIn { animation: slideIn 0.3s ease-out; }
+        .hover\:scale-105:hover { transform: scale(1.05); }
+        .hover\:scale-102:hover { transform: scale(1.02); }
+        .course-card { transition: all 0.3s ease; }
+        .grade-btn { transition: all 0.2s ease; }
+        .flowchart-node { transition: all 0.3s ease; }
+        .flowchart-line { stroke-dasharray: 5; animation: dash 1.5s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -10; } }
+    </style>
+</head>
+<body class="bg-slate-900">
+    <div id="app"></div>
+
+    <script>
+        const state = {
+            playerName: '',
+            selectedMajor: '',
+            courses: [],
+            showSetup: true,
+            level: 1,
+            xp: 0,
+            chatbot: {
+                active: true,
+                currentStep: 0,
+                completed: false,
+                responses: {
+                    studyType: '',
+                    preferredTime: ''
+                }
+            }
+        };
+
+        const majors = [
+            { id: 'cs', name: 'Computer Science', icon: '💻', color: 'from-blue-500 to-cyan-500', description: 'Master algorithms, programming, and software development' },
+            { id: 'eng', name: 'Engineering', icon: '⚙️', color: 'from-orange-500 to-red-500', description: 'Design and build innovative solutions to complex problems' },
+            { id: 'bio', name: 'Biology', icon: '🧬', color: 'from-green-500 to-emerald-500', description: 'Explore the science of life and living organisms' },
+            { id: 'bus', name: 'Business', icon: '💼', color: 'from-purple-500 to-pink-500', description: 'Develop skills for leadership and organizational success' },
+            { id: 'art', name: 'Arts', icon: '🎨', color: 'from-yellow-500 to-orange-500', description: 'Cultivate creativity and artistic expression' },
+            { id: 'math', name: 'Mathematics', icon: '📐', color: 'from-indigo-500 to-purple-500', description: 'Dive into the language of numbers and abstract reasoning' },
+        ];
+
+        // Enhanced course structure with prerequisites
+        const courseTemplates = {
+            cs: {
+                core: [
+                    { 
+                        name: 'Intro to Programming', 
+                        credits: 3, 
+                        difficulty: 1, 
+                        description: 'Learn the fundamentals of coding and problem-solving', 
+                        prerequisites: [], 
+                        semester: 1 
+                    },
+                    { 
+                        name: 'Discrete Mathematics', 
+                        credits: 3, 
+                        difficulty: 2, 
+                        description: 'Mathematical foundations for computer science', 
+                        prerequisites: [], 
+                        semester: 1 
+                    },
+                    { 
+                        name: 'Calculus I', 
+                        credits: 4, 
+                        difficulty: 2, 
+                        description: 'Introduction to differential and integral calculus', 
+                        prerequisites: [], 
+                        semester: 1 
+                    },
+                    { 
+                        name: 'Data Structures', 
+                        credits: 4, 
+                        difficulty: 2, 
+                        description: 'Master efficient ways to store and organize data', 
+                        prerequisites: ['Intro to Programming'], 
+                        semester: 2 
+                    },
+                    { 
+                        name: 'Computer Systems', 
+                        credits: 3, 
+                        difficulty: 2, 
+                        description: 'Understanding computer architecture and organization', 
+                        prerequisites: ['Intro to Programming'], 
+                        semester: 2 
+                    },
+                    { 
+                        name: 'Calculus II', 
+                        credits: 4, 
+                        difficulty: 3, 
+                        description: 'Advanced techniques of integration and series', 
+                        prerequisites: ['Calculus I'], 
+                        semester: 2 
+                    },
+                    { 
+                        name: 'Algorithms', 
+                        credits: 4, 
+                        difficulty: 3, 
+                        description: 'Design and analyze computational procedures', 
+                        prerequisites: ['Data Structures', 'Discrete Mathematics'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Database Systems', 
+                        credits: 3, 
+                        difficulty: 2, 
+                        description: 'Understand how to store and retrieve information efficiently', 
+                        prerequisites: ['Data Structures'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Linear Algebra', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Study vectors, matrices, and linear transformations', 
+                        prerequisites: ['Calculus I'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Software Engineering', 
+                        credits: 4, 
+                        difficulty: 3, 
+                        description: 'Learn professional software development practices', 
+                        prerequisites: ['Data Structures', 'Algorithms'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Operating Systems', 
+                        credits: 4, 
+                        difficulty: 4, 
+                        description: 'Study system software and resource management', 
+                        prerequisites: ['Computer Systems', 'Algorithms'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Senior Project', 
+                        credits: 3, 
+                        difficulty: 4, 
+                        description: 'Apply your skills to a comprehensive capstone project', 
+                        prerequisites: ['Software Engineering'], 
+                        semester: 4 
+                    }
+                ],
+                electives: [
+                    { 
+                        name: 'Web Development', 
+                        credits: 3, 
+                        difficulty: 2, 
+                        description: 'Build interactive websites and web applications', 
+                        prerequisites: ['Intro to Programming'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Machine Learning', 
+                        credits: 4, 
+                        difficulty: 4, 
+                        description: 'Explore AI systems that learn from data', 
+                        prerequisites: ['Algorithms', 'Linear Algebra'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Mobile App Development', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Create applications for mobile devices', 
+                        prerequisites: ['Data Structures'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Cybersecurity', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Learn to protect systems from digital attacks', 
+                        prerequisites: ['Computer Systems', 'Algorithms'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Game Development', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Design and create interactive games', 
+                        prerequisites: ['Data Structures'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Cloud Computing', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Work with distributed computing systems', 
+                        prerequisites: ['Computer Systems'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Computer Networks', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Study network protocols and architectures', 
+                        prerequisites: ['Computer Systems'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Artificial Intelligence', 
+                        credits: 4, 
+                        difficulty: 4, 
+                        description: 'Explore intelligent systems and agents', 
+                        prerequisites: ['Algorithms', 'Linear Algebra'], 
+                        semester: 4 
+                    }
+                ]
+            },
+            eng: {
+                core: [
+                    { 
+                        name: 'Engineering Mechanics', 
+                        credits: 4, 
+                        difficulty: 2, 
+                        description: 'Study forces and motion in engineering systems', 
+                        prerequisites: [], 
+                        semester: 1 
+                    },
+                    { 
+                        name: 'Calculus for Engineers', 
+                        credits: 4, 
+                        difficulty: 2, 
+                        description: 'Advanced mathematics for engineering applications', 
+                        prerequisites: [], 
+                        semester: 1 
+                    },
+                    { 
+                        name: 'Physics I: Mechanics', 
+                        credits: 4, 
+                        difficulty: 2, 
+                        description: 'Fundamental principles of mechanical physics', 
+                        prerequisites: [], 
+                        semester: 1 
+                    },
+                    { 
+                        name: 'Circuit Analysis', 
+                        credits: 4, 
+                        difficulty: 2, 
+                        description: 'Analyze electrical circuits and components', 
+                        prerequisites: ['Calculus for Engineers'], 
+                        semester: 2 
+                    },
+                    { 
+                        name: 'Materials Science', 
+                        credits: 3, 
+                        difficulty: 2, 
+                        description: 'Explore properties and applications of materials', 
+                        prerequisites: ['Physics I: Mechanics'], 
+                        semester: 2 
+                    },
+                    { 
+                        name: 'Physics II: Electricity', 
+                        credits: 4, 
+                        difficulty: 3, 
+                        description: 'Principles of electricity and magnetism', 
+                        prerequisites: ['Physics I: Mechanics', 'Calculus for Engineers'], 
+                        semester: 2 
+                    },
+                    { 
+                        name: 'Thermodynamics', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Understand energy transfer and conversion processes', 
+                        prerequisites: ['Calculus for Engineers', 'Physics I: Mechanics'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Fluid Mechanics', 
+                        credits: 4, 
+                        difficulty: 3, 
+                        description: 'Study behavior of liquids and gases in motion', 
+                        prerequisites: ['Engineering Mechanics', 'Calculus for Engineers'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Differential Equations', 
+                        credits: 4, 
+                        difficulty: 3, 
+                        description: 'Solve equations involving rates of change', 
+                        prerequisites: ['Calculus for Engineers'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Control Systems', 
+                        credits: 4, 
+                        difficulty: 3, 
+                        description: 'Design systems that regulate themselves automatically', 
+                        prerequisites: ['Circuit Analysis', 'Differential Equations'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Engineering Design', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Principles of engineering design and innovation', 
+                        prerequisites: ['Materials Science', 'Fluid Mechanics'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Senior Capstone', 
+                        credits: 4, 
+                        difficulty: 4, 
+                        description: 'Complete a comprehensive engineering design project', 
+                        prerequisites: ['Engineering Design', 'Control Systems'], 
+                        semester: 4 
+                    }
+                ],
+                electives: [
+                    { 
+                        name: 'Robotics', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Design and program robotic systems', 
+                        prerequisites: ['Control Systems'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Renewable Energy', 
+                        credits: 3, 
+                        difficulty: 2, 
+                        description: 'Study sustainable energy technologies', 
+                        prerequisites: ['Thermodynamics'], 
+                        semester: 4 
+                    },
+                    { 
+                        name: 'Biomedical Engineering', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Apply engineering to medical challenges', 
+                        prerequisites: ['Materials Science'], 
+                        semester: 3 
+                    },
+                    { 
+                        name: 'Structural Analysis', 
+                        credits: 3, 
+                        difficulty: 3, 
+                        description: 'Analyze and design structural systems', 
+                        prerequisites: ['Engineering Mechanics'], 
+                        semester: 4 
+                    }
+                ]
+            }
+        };
+
+        // Simplified chatbot steps
+        const chatbotSteps = [
+            {
+                question: "Welcome to Academic Pathway Quest! Let's personalize your journey. What's your name?",
+                type: 'text',
+                key: "playerName"
+            },
+            {
+                question: "Nice to meet you! Are you planning to study full-time or part-time?",
+                options: ["Full-time (4+ courses per semester)", "Part-time (1-3 courses per semester)"],
+                key: "studyType"
+            },
+            {
+                question: "What time of day do you prefer for classes?",
+                options: ["Morning (8 AM - 12 PM)", "Afternoon (12 PM - 4 PM)", "Evening (4 PM - 8 PM)", "Flexible (Any time works)"],
+                key: "preferredTime"
+            }
+        ];
+
+        function updateStats() {
+            const totalXP = state.courses.reduce((sum, c) => sum + (c.completed ? c.credits * c.difficulty * 10 : 0), 0);
+            state.xp = totalXP;
+            state.level = Math.floor(totalXP / 100) + 1;
+        }
+
+        function startQuest() {
+            if (state.selectedMajor && courseTemplates[state.selectedMajor]) {
+                const majorCourses = courseTemplates[state.selectedMajor];
+                
+                // Select 4 electives for the student
+                const selectedElectives = [...majorCourses.electives]
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, 4)
+                    .map((course, idx) => ({
+                        ...course,
+                        id: `elective-${idx}`,
+                        type: 'elective',
+                        completed: false,
+                        grade: null,
+                    }));
+
+                state.courses = [
+                    ...majorCourses.core.map((course, idx) => ({
+                        ...course,
+                        id: `core-${idx}`,
+                        type: 'core',
+                        completed: false,
+                        grade: null,
+                    })),
+                    ...selectedElectives
+                ];
+                
+                state.showSetup = false;
+                updateStats();
+                render();
+            }
+        }
+
+        function toggleCourse(id) {
+            const course = state.courses.find(c => c.id === id);
+            if (course) {
+                // Check if prerequisites are met
+                const unmetPrerequisites = course.prerequisites.filter(prereq => 
+                    !state.courses.find(c => c.name === prereq && c.completed)
+                );
+
+                if (unmetPrerequisites.length > 0 && !course.completed) {
+                    alert(`Cannot take ${course.name} yet. Complete these prerequisites first: ${unmetPrerequisites.join(', ')}`);
+                    return;
+                }
+
+                course.completed = !course.completed;
+                if (!course.completed) course.grade = null;
+                updateStats();
+                render();
+            }
+        }
+
+        function updateGrade(id, grade) {
+            const course = state.courses.find(c => c.id === id);
+            if (course) {
+                course.grade = grade;
+                render();
+            }
+        }
+
+        function getDifficultyStars(difficulty) {
+            let stars = '';
+            for (let i = 0; i < difficulty; i++) {
+                stars += '<svg class="w-3 h-3 inline fill-yellow-400 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+            }
+            return stars;
+        }
+
+        function getGradeColor(grade) {
+            if (!grade) return 'bg-gray-700';
+            if (grade === 'A' || grade === 'A+') return 'bg-green-600';
+            if (grade === 'B+' || grade === 'B') return 'bg-blue-600';
+            if (grade === 'C+' || grade === 'C' || grade === 'B-') return 'bg-yellow-600';
+            return 'bg-orange-600';
+        }
+
+        function handleChatbotResponse(response) {
+            const currentStep = chatbotSteps[state.chatbot.currentStep];
+            
+            if (currentStep.key === 'playerName') {
+                state.playerName = response;
+            } else {
+                state.chatbot.responses[currentStep.key] = response;
+            }
+            
+            if (state.chatbot.currentStep < chatbotSteps.length - 1) {
+                state.chatbot.currentStep++;
+            } else {
+                state.chatbot.completed = true;
+            }
+            render();
+        }
+
+        function renderFlowchart() {
+            if (!state.courses.length) return '';
+            
+            const semesters = [1, 2, 3, 4];
+            const completedCourses = state.courses.filter(c => c.completed);
+            
+            return `
+                <div class="bg-slate-800 rounded-xl p-6 border-2 border-purple-500 mb-6">
+                    <h3 class="text-xl font-bold text-white mb-4">📊 Academic Flowchart</h3>
+                    <div class="overflow-x-auto">
+                        <div class="flex gap-4 min-w-max">
+                            ${semesters.map(semester => {
+                                const semesterCourses = state.courses.filter(c => c.semester === semester);
+                                const completedCount = semesterCourses.filter(c => c.completed).length;
+                                
+                                return `
+                                    <div class="flex flex-col items-center">
+                                        <div class="text-white font-bold mb-2">Semester ${semester}</div>
+                                        <div class="bg-slate-700 rounded-lg p-4 min-w-[200px]">
+                                            ${semesterCourses.map(course => `
+                                                <div class="flowchart-node mb-2 p-2 rounded border-2 ${
+                                                    course.completed 
+                                                        ? 'border-green-500 bg-green-900/20' 
+                                                        : course.prerequisites.every(prereq => 
+                                                            state.courses.find(c => c.name === prereq && c.completed)
+                                                        ) 
+                                                        ? 'border-blue-400 bg-blue-900/20 cursor-pointer hover:bg-blue-900/40'
+                                                        : 'border-gray-500 bg-gray-900/20 opacity-50'
+                                                }" onclick="${course.prerequisites.every(prereq => 
+                                                    state.courses.find(c => c.name === prereq && c.completed)
+                                                ) || course.completed ? `toggleCourse('${course.id}')` : ''}">
+                                                    <div class="flex justify-between items-center">
+                                                        <span class="text-sm text-white ${course.completed ? 'line-through' : ''}">${course.name}</span>
+                                                        ${course.type === 'core' ? '🔴' : '🟢'}
+                                                    </div>
+                                                    <div class="text-xs text-gray-400 mt-1">${course.credits} credits</div>
+                                                    ${course.prerequisites.length > 0 ? `
+                                                        <div class="text-xs text-gray-500 mt-1">Req: ${course.prerequisites.join(', ')}</div>
+                                                    ` : ''}
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                        <div class="text-sm text-gray-400 mt-2">${completedCount}/${semesterCourses.length} completed</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mt-4 text-sm text-gray-400">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 bg-red-500 rounded"></div>
+                            <span>Core Course</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 bg-green-500 rounded"></div>
+                            <span>Elective</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderChatbot() {
+            if (!state.chatbot.active) return '';
+            
+            const currentStep = chatbotSteps[state.chatbot.currentStep];
+            
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8 flex items-center justify-center">
+                    <div class="max-w-2xl w-full">
+                        <div class="text-center mb-8">
+                            <div class="inline-block p-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mb-4">
+                                <svg class="w-12 h-12 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </div>
+                            <h1 class="text-3xl font-bold text-white mb-2">Academic Pathway Quest</h1>
+                            <p class="text-gray-300">Let's personalize your academic journey</p>
+                        </div>
+
+                        <div class="bg-slate-800 rounded-2xl p-6 border-2 border-purple-500">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-bold text-lg">AI</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-white font-bold text-lg">Study Advisor</h3>
+                                    <p class="text-gray-400">Step ${state.chatbot.currentStep + 1} of ${chatbotSteps.length}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <div class="bg-slate-700 rounded-lg p-4 animate-slideIn">
+                                    <p class="text-white mb-4 text-lg">${currentStep.question}</p>
+                                    
+                                    ${currentStep.type === 'text' ? `
+                                        <div class="flex gap-2">
+                                            <input
+                                                type="text"
+                                                id="chatbotInput"
+                                                class="flex-1 p-3 bg-slate-600 border border-slate-500 rounded-lg text-white focus:outline-none focus:border-purple-400"
+                                                placeholder="Type your answer..."
+                                                onkeypress="if(event.key === 'Enter') handleChatbotResponse(document.getElementById('chatbotInput').value)"
+                                            />
+                                            <button
+                                                onclick="handleChatbotResponse(document.getElementById('chatbotInput').value)"
+                                                class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
+                                            >
+                                                Continue
+                                            </button>
+                                        </div>
+                                    ` : `
+                                        <div class="space-y-2">
+                                            ${currentStep.options.map(option => `
+                                                <button
+                                                    onclick="handleChatbotResponse('${option}')"
+                                                    class="w-full text-left p-4 bg-slate-600 hover:bg-slate-500 rounded-lg text-white transition-all transform hover:scale-102"
+                                                >
+                                                    ${option}
+                                                </button>
+                                            `).join('')}
+                                        </div>
+                                    `}
+                                </div>
+                                
+                                ${state.chatbot.completed ? `
+                                    <div class="bg-green-600 rounded-lg p-4 animate-fadeIn">
+                                        <p class="text-white font-semibold text-center">🎉 Perfect! Now choose your major to begin your quest!</p>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        ${majors.map(major => `
+                                            <button
+                                                onclick="state.selectedMajor = '${major.id}'; startQuest();"
+                                                class="p-4 rounded-xl border-2 transition-all transform hover:scale-105 text-left bg-slate-700 border-slate-600 hover:border-purple-400"
+                                            >
+                                                <div class="text-2xl mb-2">${major.icon}</div>
+                                                <div class="text-white font-semibold">${major.name}</div>
+                                                <div class="text-gray-300 text-sm mt-1">${major.description}</div>
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSetup() {
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="text-center mb-8 md:mb-12 animate-float">
+                            <div class="inline-block p-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mb-4 shadow-lg">
+                                <svg class="w-12 h-12 md:w-16 md:h-16 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                                    <path d="M4 22h16"></path>
+                                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                                </svg>
+                            </div>
+                            <h1 class="text-3xl md:text-5xl font-bold text-white mb-2 md:mb-4">Academic Pathway Quest</h1>
+                            <p class="text-lg md:text-xl text-gray-300">Level up your education journey!</p>
+                        </div>
+
+                        <div class="bg-slate-800 rounded-xl md:rounded-2xl p-6 md:p-8 shadow-2xl border border-purple-500 animate-fadeIn">
+                            <button
+                                onclick="state.chatbot.active = true; render();"
+                                class="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-lg font-bold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105 mb-6"
+                            >
+                                🎯 Start with Personalized Guidance
+                            </button>
+                            
+                            <div class="mb-6 md:mb-8">
+                                <label class="block text-white text-lg font-semibold mb-4">
+                                    Or choose your major directly:
+                                </label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                                    ${majors.map(major => `
+                                        <button
+                                            onclick="state.selectedMajor = '${major.id}'; state.playerName = 'Student'; startQuest();"
+                                            class="p-4 md:p-6 rounded-xl border-2 transition-all transform hover:scale-105 text-left bg-slate-700 border-slate-600 hover:border-purple-400"
+                                        >
+                                            <div class="text-3xl md:text-4xl mb-2">${major.icon}</div>
+                                            <div class="text-white font-semibold text-base md:text-lg">${major.name}</div>
+                                            <div class="text-gray-300 text-xs md:text-sm mt-1">${major.description}</div>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMain() {
+            const completedCourses = state.courses.filter(c => c.completed).length;
+            const totalCourses = state.courses.length;
+            const progressPercent = totalCourses > 0 ? (completedCourses / totalCourses) * 100 : 0;
+            const totalCredits = state.courses.reduce((sum, c) => sum + (c.completed ? c.credits : 0), 0);
+            const xpToNext = (state.level * 100) - state.xp;
+            const majorInfo = majors.find(m => m.id === state.selectedMajor);
+            const coreCourses = state.courses.filter(c => c.type === 'core');
+            const electiveCourses = state.courses.filter(c => c.type === 'elective');
+
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
+                    <div class="max-w-6xl mx-auto">
+                        <!-- Chatbot Trigger Button -->
+                        <button
+                            onclick="state.chatbot.active = true; render();"
+                            class="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition-all transform animate-float"
+                        >
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                        </button>
+
+                        <div class="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl md:rounded-2xl p-4 md:p-6 mb-4 md:mb-6 border-2 border-purple-500 shadow-2xl animate-fadeIn">
+                            <div class="flex flex-wrap items-center justify-between gap-3 md:gap-4">
+                                <div class="flex-1 min-w-[200px]">
+                                    <h1 class="text-2xl md:text-3xl font-bold text-white mb-1">${state.playerName}'s ${majorInfo?.name} Quest</h1>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xl md:text-2xl">${majorInfo?.icon}</span>
+                                        <span class="text-lg md:text-xl text-gray-300">${state.chatbot.responses.studyType || 'Full-time'} Student</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex gap-4 md:gap-6">
+                                    <div class="text-center">
+                                        <div class="flex items-center justify-center gap-1 md:gap-2 mb-1">
+                                            <svg class="w-5 h-5 md:w-6 md:h-6 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <circle cx="12" cy="8" r="6"></circle>
+                                                <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path>
+                                            </svg>
+                                            <span class="text-xl md:text-2xl font-bold text-yellow-400">Level ${state.level}</span>
+                                        </div>
+                                        <div class="text-xs md:text-sm text-gray-400">${xpToNext} XP to next level</div>
+                                    </div>
+                                    
+                                    <div class="text-center">
+                                        <div class="flex items-center justify-center gap-1 md:gap-2 mb-1">
+                                            <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                                            </svg>
+                                            <span class="text-xl md:text-2xl font-bold text-blue-400">${totalCredits}</span>
+                                        </div>
+                                        <div class="text-xs md:text-sm text-gray-400">Credits Earned</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 md:mt-4">
+                                <div class="flex justify-between text-xs md:text-sm text-gray-400 mb-2">
+                                    <span>Degree Progress</span>
+                                    <span>${completedCourses} / ${totalCourses} Courses</span>
+                                </div>
+                                <div class="w-full bg-slate-600 rounded-full h-3 md:h-4 overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 flex items-center justify-end pr-2" style="width: ${progressPercent}%">
+                                        ${progressPercent > 10 ? `<span class="text-xs font-bold text-white">${Math.round(progressPercent)}%</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${renderFlowchart()}
+
+                        <div class="grid lg:grid-cols-2 gap-6">
+                            <!-- Core Courses -->
+                            <div>
+                                <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                    <span class="bg-red-500 w-3 h-3 rounded-full"></span>
+                                    Core Courses (Required) - ${coreCourses.filter(c => c.completed).length}/${coreCourses.length} Completed
+                                </h3>
+                                <div class="space-y-3">
+                                    ${coreCourses.map(course => `
+                                        <div class="course-card bg-slate-800 rounded-xl p-4 border-2 transition-all transform hover:scale-102 animate-fadeIn ${
+                                            course.completed ? 'border-green-500 shadow-lg shadow-green-500/20' : 'border-slate-600'
+                                        }">
+                                            <div class="flex items-start justify-between mb-3">
+                                                <div class="flex-1">
+                                                    <h3 class="text-base md:text-lg font-bold mb-1 md:mb-2 ${course.completed ? 'text-green-400' : 'text-white'}">
+                                                        ${course.name}
+                                                    </h3>
+                                                    <p class="text-xs md:text-sm text-gray-400 mb-2">${course.description}</p>
+                                                    <div class="flex items-center gap-3 md:gap-4 text-xs md:text-sm">
+                                                        <span class="text-gray-400">${course.credits} credits • Semester ${course.semester}</span>
+                                                        <div class="flex items-center gap-1">
+                                                            ${getDifficultyStars(course.difficulty)}
+                                                        </div>
+                                                    </div>
+                                                    ${course.prerequisites.length > 0 ? `
+                                                        <div class="mt-2 text-xs text-yellow-400">
+                                                            📚 Prerequisites: ${course.prerequisites.join(', ')}
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                                
+                                                <button
+                                                    onclick="toggleCourse('${course.id}')"
+                                                    class="p-2 rounded-lg transition-all ${
+                                                        course.completed ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-700 hover:bg-slate-600'
+                                                    }"
+                                                >
+                                                    ${course.completed ? `
+                                                        <svg class="w-5 h-5 text-yellow-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M9 11l3 3L22 4"></path>
+                                                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                                                        </svg>
+                                                    ` : `
+                                                        <svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                        </svg>
+                                                    `}
+                                                </button>
+                                            </div>
+
+                                            ${course.completed ? `
+                                                <div class="mt-3 pt-3 border-t border-slate-700">
+                                                    <label class="block text-xs md:text-sm text-gray-400 mb-2">Grade Earned:</label>
+                                                    <div class="flex gap-1 md:gap-2 flex-wrap">
+                                                        ${['A+', 'A', 'B+', 'B', 'B-', 'C+', 'C'].map(grade => `
+                                                            <button
+                                                                onclick="updateGrade('${course.id}', '${grade}')"
+                                                                class="grade-btn px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                                                                    course.grade === grade
+                                                                        ? `${getGradeColor(grade)} text-white shadow-md`
+                                                                        : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
+                                                                }"
+                                                            >
+                                                                ${grade}
+                                                            </button>
+                                                        `).join('')}
+                                                    </div>
+                                                </div>
+                                                <div class="mt-3 bg-slate-700 rounded-lg p-2 text-center">
+                                                    <span class="text-green-400 font-bold text-sm md:text-base">
+                                                        +${course.credits * course.difficulty * 10} XP
+                                                    </span>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Elective Courses -->
+                            <div>
+                                <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                    <span class="bg-green-500 w-3 h-3 rounded-full"></span>
+                                    Elective Courses (Choose 4) - ${electiveCourses.filter(c => c.completed).length}/${electiveCourses.length} Completed
+                                </h3>
+                                <div class="space-y-3">
+                                    ${electiveCourses.map(course => `
+                                        <div class="course-card bg-slate-800 rounded-xl p-4 border-2 transition-all transform hover:scale-102 animate-fadeIn ${
+                                            course.completed ? 'border-green-500 shadow-lg shadow-green-500/20' : 'border-slate-600'
+                                        }">
+                                            <div class="flex items-start justify-between mb-3">
+                                                <div class="flex-1">
+                                                    <h3 class="text-base md:text-lg font-bold mb-1 md:mb-2 ${course.completed ? 'text-green-400' : 'text-white'}">
+                                                        ${course.name}
+                                                    </h3>
+                                                    <p class="text-xs md:text-sm text-gray-400 mb-2">${course.description}</p>
+                                                    <div class="flex items-center gap-3 md:gap-4 text-xs md:text-sm">
+                                                        <span class="text-gray-400">${course.credits} credits • Semester ${course.semester}</span>
+                                                        <div class="flex items-center gap-1">
+                                                            ${getDifficultyStars(course.difficulty)}
+                                                        </div>
+                                                    </div>
+                                                    ${course.prerequisites.length > 0 ? `
+                                                        <div class="mt-2 text-xs text-yellow-400">
+                                                            📚 Prerequisites: ${course.prerequisites.join(', ')}
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                                
+                                                <button
+                                                    onclick="toggleCourse('${course.id}')"
+                                                    class="p-2 rounded-lg transition-all ${
+                                                        course.completed ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-700 hover:bg-slate-600'
+                                                    }"
+                                                >
+                                                    ${course.completed ? `
+                                                        <svg class="w-5 h-5 text-yellow-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M9 11l3 3L22 4"></path>
+                                                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                                                        </svg>
+                                                    ` : `
+                                                        <svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                        </svg>
+                                                    `}
+                                                </button>
+                                            </div>
+
+                                            ${course.completed ? `
+                                                <div class="mt-3 pt-3 border-t border-slate-700">
+                                                    <label class="block text-xs md:text-sm text-gray-400 mb-2">Grade Earned:</label>
+                                                    <div class="flex gap-1 md:gap-2 flex-wrap">
+                                                        ${['A+', 'A', 'B+', 'B', 'B-', 'C+', 'C'].map(grade => `
+                                                            <button
+                                                                onclick="updateGrade('${course.id}', '${grade}')"
+                                                                class="grade-btn px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-all ${
+                                                                    course.grade === grade
+                                                                        ? `${getGradeColor(grade)} text-white shadow-md`
+                                                                        : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
+                                                                }"
+                                                            >
+                                                                ${grade}
+                                                            </button>
+                                                        `).join('')}
+                                                    </div>
+                                                </div>
+                                                <div class="mt-3 bg-slate-700 rounded-lg p-2 text-center">
+                                                    <span class="text-green-400 font-bold text-sm md:text-base">
+                                                        +${course.credits * course.difficulty * 10} XP
+                                                    </span>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        ${progressPercent === 100 ? `
+                            <div class="mt-6 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl md:rounded-2xl p-6 md:p-8 text-center animate-pulse animate-fadeIn">
+                                <svg class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-3 md:mb-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                                    <path d="M4 22h16"></path>
+                                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+                                </svg>
+                                <h2 class="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-2">🎉 Degree Complete! 🎉</h2>
+                                <p class="text-lg md:text-xl text-white">Congratulations! You've earned your ${majorInfo?.name} degree!</p>
+                                <button 
+                                    onclick="state.showSetup = true; state.chatbot.active = true; state.chatbot.completed = false; state.chatbot.currentStep = 0; render();" 
+                                    class="mt-4 px-6 py-2 bg-white text-purple-700 font-bold rounded-lg hover:bg-gray-100 transition-colors"
+                                >
+                                    Start New Quest
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${state.chatbot.active ? renderChatbot() : ''}
+                </div>
+            `;
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            
+            if (state.chatbot.active && !state.chatbot.completed) {
+                app.innerHTML = renderChatbot();
+                // Focus on input if it exists
+                const input = document.getElementById('chatbotInput');
+                if (input) input.focus();
+            } else if (state.showSetup) {
+                app.innerHTML = renderSetup();
+            } else {
+                app.innerHTML = renderMain();
+            }
+        }
+
+        // Initialize the app
+        render();
+    </script>
+</body>
+</html>
